@@ -72,6 +72,7 @@ def gen_population(shape, size=10):
 # Amestecand datele
 # Probabilitatea de mutatie setata de mine.
 # losst
+# Use normalized loss -1 ---- 1 to mutate random weigth using mutation algo.
 def run():
     # Shuffle dataset 
     for epoch in range(1):  # loop over the dataset multiple times
