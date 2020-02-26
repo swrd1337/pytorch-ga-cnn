@@ -77,6 +77,18 @@ def run():
     # Shuffle dataset 
     for epoch in range(1):  # loop over the dataset multiple times
 
+        print(net.conv1.weight.shape)
+        print(net.conv2.weight.shape)
+        print(net.fc1.weight.shape)
+        print(net.fc2.weight.shape)
+        print(net.fc3.weight.shape)
+
+        t = net.conv1.weight
+        t = t.view(np.prod(t.shape))
+        print(t)
+        t = t.view(net.conv1.weight.shape)
+        print(t)
+
         conv1_pop = gen_population(net.conv1.weight.shape)
         conv2_pop = gen_population(net.conv2.weight.shape)
 
