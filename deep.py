@@ -71,10 +71,6 @@ POP_SIZE = 10
 DEFAULT_ELITE_SIZE = 6
 
 
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
-
-
 def gen_population(shape, size=POP_SIZE):
     res = []
     for i in range(size):
@@ -103,12 +99,27 @@ def get_fittest(list_of_cand, elite_size=DEFAULT_ELITE_SIZE):
 
 
 def cross_by_two(p1, p2):
+    """
+    Two-Point Crossover:
+    Two random points are chosen on the individual chromosomes
+    and the genetic material is exchanged at these points.
+    """
     pass
 
 
 def do_crossover(chromozomes):
-    pass
+    """
+    Do Two-Point Crossover for selection on current epoch.
+    """
+    for i in len(chromozomes - 2):
+        print("Index: " + str(i))
+        parent_1 = chromozomes[i]
+        parent_2 = chromozomes[i + 1]
+        cross_by_two(parent_1, parent_2)
 
+
+criterion = nn.CrossEntropyLoss()
+optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
 
 # Salvez acuratetea si lossul pe testing dupa ce iau cel rezultat
 # Amestecand datele
