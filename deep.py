@@ -50,7 +50,7 @@ class Net(nn.Module):
         self.conv2 = nn.Conv2d(6, 16, 5)
         self.fc1 = nn.Linear(16 * 122 * 122, 120, bias=False)
         self.fc2 = nn.Linear(120, 84, bias=False)
-        self.fc3 = nn.Linear(84, 10, bias=False)
+        self.fc3 = nn.Linear(84, 4, bias=False)
 
     def forward(self, x):
         x = self.pool(F.relu(self.conv1(x)))
@@ -87,39 +87,63 @@ def get_fittest(list_of_cand, elite_size=DEFAULT_ELITE_SIZE):
     for i in range(elite_size):
         selected.append(list_of_cand[i][1])
 
-    selection_size = int(random.randrange(len(list_of_cand) + 1))
+    selection_size = len(list_of_cand)
 
-    if selection_size % 2 == 1:
-        selection_size -= 1
+    for i in range(0, selection_size - elite_size):
+        pick_value = random.uniform(0, list_of_cand[selection_size - 1][0])
+        for j in range(0, selection_size):
+            if list_of_cand[i][0] <= pick_value:
+                selected.append(list_of_cand[i][1])
+                break
 
-    for i in range(elite_size, selection_size):
-        selected.append(list_of_cand[i][1])
+    diff = selection_size - len(selected)
+
+    for i in range(0, diff):
+        ran_i = random.randint(0, selection_size - 1)
+        selected.append(list_of_cand[ran_i][1])
 
     return selected
 
 
 def cross_by_two(p1, p2):
     """
-    Two-Point Crossover:
-    Two random points are chosen on the individual chromosomes
-    and the genetic material is exchanged at these points.
+    One-Point Crossover:
+    One random point is chosen on the individual chromosomes
+    and the genetic material is exchanged at these point.
     """
-    pass
+    p_size = list(p1.size())[0]
+
+    k = random.randint(1, p_size - 1)
+    d1, d2 = p1, p2
+    for i in range(k, p_size):
+        d1[i], d2[i] = d2[i], d1[i] 
+
+    return d1, d2
 
 
 def do_crossover(chromozomes):
     """
     Do Two-Point Crossover for selection on current epoch.
     """
-    for i in len(chromozomes - 2):
-        print("Index: " + str(i))
+    next_gen = []
+
+    for i in range(0, len(chromozomes) - 1, 2):
         parent_1 = chromozomes[i]
         parent_2 = chromozomes[i + 1]
-        cross_by_two(parent_1, parent_2)
+        des1, des2 = cross_by_two(parent_1, parent_2)
+        next_gen.append(des1)
+        next_gen.append(des2)
+
+    return next_gen
+
+
+def do_mutation():
+    pass
 
 
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+
 
 # Salvez acuratetea si lossul pe testing dupa ce iau cel rezultat
 # Amestecand datele
@@ -166,7 +190,8 @@ def run():
 
                 cv1_fit = sorted(cv1_fit, key=lambda x: x[0])
                 cv1_selected = get_fittest(cv1_fit)
-                print(cv1_selected)
+                print(len(cv1_selected))
+                do_crossover(cv1_selected)
     print('Finished Training')
 
 
