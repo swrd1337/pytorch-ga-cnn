@@ -70,6 +70,9 @@ POP_SIZE = 10
 # Always odd value!
 DEFAULT_ELITE_SIZE = 6
 
+# Mutation probabillity
+MP = 0.35
+
 
 def gen_population(shape, size=POP_SIZE):
     res = []
@@ -116,7 +119,8 @@ def cross_by_two(p1, p2):
     k = random.randint(1, p_size - 1)
     d1, d2 = p1, p2
     for i in range(k, p_size):
-        d1[i], d2[i] = d2[i], d1[i] 
+        a, b = d1[i].item(), d2[i].item()
+        d1[i], d2[i] = b, a
 
     return d1, d2
 
@@ -126,6 +130,7 @@ def do_crossover(chromozomes):
     Do Two-Point Crossover for selection on current epoch.
     """
     next_gen = []
+    print(len(chromozomes))
 
     for i in range(0, len(chromozomes) - 1, 2):
         parent_1 = chromozomes[i]
@@ -137,8 +142,22 @@ def do_crossover(chromozomes):
     return next_gen
 
 
-def do_mutation():
-    pass
+def do_mutation(generations, loss):
+    for i in range(0, len(generations)):
+        g = random.uniform(0, 1)
+        if g < MP:
+            chromosom = generations[i]
+            for j in range(0, len(chromosom)):
+                ng = random.uniform(0, 1)
+                if ng < 0.5:
+                    item = chromosom[i].item()
+                    if item > 0:
+                        chromosom[i] = item - ng / 10 - loss / 1000
+                    else:
+                        chromosom[i] = item - ng / 10 + loss / 1000
+
+            generations[i] = chromosom
+    return generations
 
 
 criterion = nn.CrossEntropyLoss()
@@ -154,44 +173,90 @@ def run():
     # Shuffle dataset
     for epoch in range(1):  # loop over the dataset multiple times
         with torch.no_grad():
-            # print(net.conv1.weight)
-            # print(net.fc1.weight)
-            # print(net.fc2.weight.shape)
-            # print(net.fc3.weight.shape)
-
-            # t = net.conv1.weight
-            # t = t.view(np.prod(t.shape))
-            # print(t)
-            # t = t.view(net.conv1.weight.shape)
-            # print(t)
-
             conv1_pop = gen_population(net.conv1.weight.shape)
-            # print(conv1_pop)
+            conv2_pop = gen_population(net.conv2.weight.shape)
 
-            # run other data generated population. adjust weights, select the best boi in every epoch
-            # add the best boio to final pop
-            # select from final pop boio with best fitness
-            # check result
+            full1_pop = gen_population(net.fc1.weight.shape)
+            full2_pop = gen_population(net.fc2.weight.shape)
+            full3_pop = gen_population(net.fc3.weight.shape)
+
             for i, data in enumerate(trainloader, 0):
                 # get the inputs; data is a list of [inputs, labels]
                 inputs, labels = data
 
                 cv1_fit = []
+                cv2_fit = []
+
+                fc1_fit = []
+                fc2_fit = []
+                fc3_fit = []
                 # Get fitness for gen
                 for i in range(POP_SIZE):
+                    conv1_pop[i] = conv1_pop[i].view((net.conv1.weight.shape))
+                    conv2_pop[i] = conv2_pop[i].view((net.conv2.weight.shape))
+
+                    full1_pop[i] = full1_pop[i].view((net.fc1.weight.shape))
+                    full2_pop[i] = full2_pop[i].view((net.fc2.weight.shape))
+                    full3_pop[i] = full3_pop[i].view((net.fc3.weight.shape))
 
                     net.conv1.weight = torch.nn.Parameter(conv1_pop[i])
+                    net.conv2.weight = torch.nn.Parameter(conv2_pop[i])
+
+                    net.fc1.weight = torch.nn.Parameter(full1_pop[i])
+                    net.fc2.weight = torch.nn.Parameter(full2_pop[i])
+                    net.fc3.weight = torch.nn.Parameter(full3_pop[i])
 
                     outputs = net(inputs)
                     loss = criterion(outputs, labels)
                     # print(loss)
                     cv1_fit.append((loss.item(), conv1_pop[i].view(
                         np.prod(net.conv1.weight.shape))))
+                    cv2_fit.append((loss.item(), conv2_pop[i].view(
+                        np.prod(net.conv2.weight.shape))))
+
+                    fc1_fit.append((loss.item(), full1_pop[i].view(
+                        np.prod(net.fc1.weight.shape))))
+                    fc2_fit.append((loss.item(), full2_pop[i].view(
+                        np.prod(net.fc2.weight.shape))))
+                    fc3_fit.append((loss.item(), full3_pop[i].view(
+                        np.prod(net.fc3.weight.shape))))
 
                 cv1_fit = sorted(cv1_fit, key=lambda x: x[0])
+                best_loss = cv1_fit[0][0]
                 cv1_selected = get_fittest(cv1_fit)
-                print(len(cv1_selected))
-                do_crossover(cv1_selected)
+                next_gen = do_crossover(cv1_selected)
+                next_gen = do_mutation(next_gen, best_loss)
+                conv1_pop = next_gen
+
+                cv2_fit = sorted(cv2_fit, key=lambda x: x[0])
+                best_loss = cv2_fit[0][0]
+                cv2_selected = get_fittest(cv2_fit)
+                next_gen = do_crossover(cv2_selected)
+                next_gen = do_mutation(next_gen, best_loss)
+                conv2_pop = next_gen
+
+                fc1_fit = sorted(fc1_fit, key=lambda x: x[0])
+                best_loss = fc1_fit[0][0]
+                fc1_selected = get_fittest(fc1_fit)
+                next_gen = do_crossover(fc1_selected)
+                next_gen = do_mutation(next_gen, best_loss)
+                full1_pop = next_gen
+
+                fc2_fit = sorted(fc2_fit, key=lambda x: x[0])
+                best_loss = fc2_fit[0][0]
+                fc3_selected = get_fittest(fc2_fit)
+                next_gen = do_crossover(fc3_selected)
+                next_gen = do_mutation(next_gen, best_loss)
+                full2_pop = next_gen
+
+                fc3_fit = sorted(fc3_fit, key=lambda x: x[0])
+                best_loss = fc3_fit[0][0]
+                fc3_selected = get_fittest(fc3_fit)
+                next_gen = do_crossover(fc3_selected)
+                next_gen = do_mutation(next_gen, best_loss)
+                full2_pop = next_gen
+
+                print(best_loss)
     print('Finished Training')
 
 
