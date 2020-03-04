@@ -152,9 +152,9 @@ def do_mutation(generations, loss):
                 if ng < 0.5:
                     item = chromosom[i].item()
                     if item > 0:
-                        chromosom[i] = item - ng / 10 - loss / 1000
+                        chromosom[i] = item - ng / 10 - loss / 10000
                     else:
-                        chromosom[i] = item - ng / 10 + loss / 1000
+                        chromosom[i] = item + ng / 10 + loss / 10000
 
             generations[i] = chromosom
     return generations
@@ -169,8 +169,9 @@ optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
 # Probabilitatea de mutatie setata de mine.
 # losst
 # Use normalized loss -1 ---- 1 to mutate random weigth using mutation algo.
+# Cel mai bun cromozom dupa rulare.
 def run():
-    # Shuffle dataset
+    # Shuffle dataset 100
     for epoch in range(1):  # loop over the dataset multiple times
         with torch.no_grad():
             conv1_pop = gen_population(net.conv1.weight.shape)
@@ -255,7 +256,12 @@ def run():
                 next_gen = do_crossover(fc3_selected)
                 next_gen = do_mutation(next_gen, best_loss)
                 full2_pop = next_gen
-
+                """
+                TODO:
+                    - Get accuracy for every generation. Save.
+                    SVM - 92%
+                    SVM - 93.%
+                """
                 print(best_loss)
     print('Finished Training')
 
