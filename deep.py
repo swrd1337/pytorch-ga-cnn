@@ -9,7 +9,7 @@ import random
 
 # numpy train test split NFoldCrossValidation
 transform = transforms.Compose(
-    [transforms.Resize((500, 500)), transforms.ToTensor()]
+    [transforms.Resize((30, 30)), transforms.ToTensor()]
 )
 
 trainset = torchvision.datasets.ImageFolder(
@@ -48,14 +48,15 @@ class Net(nn.Module):
         self.conv1 = nn.Conv2d(3, 6, 5)
         self.pool = nn.MaxPool2d(2, 2)
         self.conv2 = nn.Conv2d(6, 16, 5)
-        self.fc1 = nn.Linear(16 * 122 * 122, 120, bias=False)
+        self.fc1 = nn.Linear(16 * 4 * 4, 120, bias=False)
         self.fc2 = nn.Linear(120, 84, bias=False)
         self.fc3 = nn.Linear(84, 4, bias=False)
 
     def forward(self, x):
         x = self.pool(F.relu(self.conv1(x)))
         x = self.pool(F.relu(self.conv2(x)))
-        x = x.view(-1, 16 * 122 * 122)
+        print(x.shape)
+        x = x.view(-1, 16 * 4 * 4)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
@@ -245,8 +246,8 @@ def run():
 
                 fc2_fit = sorted(fc2_fit, key=lambda x: x[0])
                 best_loss = fc2_fit[0][0]
-                fc3_selected = get_fittest(fc2_fit)
-                next_gen = do_crossover(fc3_selected)
+                fc2_selected = get_fittest(fc2_fit)
+                next_gen = do_crossover(fc2_selected)
                 next_gen = do_mutation(next_gen, best_loss)
                 full2_pop = next_gen
 
@@ -255,7 +256,7 @@ def run():
                 fc3_selected = get_fittest(fc3_fit)
                 next_gen = do_crossover(fc3_selected)
                 next_gen = do_mutation(next_gen, best_loss)
-                full2_pop = next_gen
+                full3_pop = next_gen
                 """
                 TODO:
                     - Get accuracy for every generation. Save.
