@@ -55,7 +55,6 @@ class Net(nn.Module):
     def forward(self, x):
         x = self.pool(F.relu(self.conv1(x)))
         x = self.pool(F.relu(self.conv2(x)))
-        print(x.shape)
         x = x.view(-1, 16 * 4 * 4)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
@@ -66,18 +65,23 @@ class Net(nn.Module):
 net = Net()
 
 # Initial population size for every epoch
-POP_SIZE = 10
+POP_SIZE = 100
 
 # Always odd value!
-DEFAULT_ELITE_SIZE = 6
+DEFAULT_ELITE_SIZE = 10
 
 # Mutation probabillity
 MP = 0.35
 
 
-def gen_population(shape, size=POP_SIZE):
+def gen_population(shape, best_one, size=POP_SIZE):
     res = []
-    for i in range(size):
+
+    if best_one is not None:
+        size -= 1
+        res.append(best_one)
+
+    for i in range(0, size):
         res.append(torch.randn(shape))
     return res
 
@@ -131,7 +135,6 @@ def do_crossover(chromozomes):
     Do Two-Point Crossover for selection on current epoch.
     """
     next_gen = []
-    print(len(chromozomes))
 
     for i in range(0, len(chromozomes) - 1, 2):
         parent_1 = chromozomes[i]
@@ -171,17 +174,25 @@ optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
 # losst
 # Use normalized loss -1 ---- 1 to mutate random weigth using mutation algo.
 # Cel mai bun cromozom dupa rulare.
+
+
 def run():
     # Shuffle dataset 100
-    for epoch in range(1):  # loop over the dataset multiple times
+    conv1_pop_best = None
+    conv2_pop_best = None
+    full1_pop_best = None
+    full2_pop_best = None
+    full3_pop_best = None
+    for epoch in range(100):  # loop over the dataset multiple times
         with torch.no_grad():
-            conv1_pop = gen_population(net.conv1.weight.shape)
-            conv2_pop = gen_population(net.conv2.weight.shape)
+            conv1_pop = gen_population(net.conv1.weight.shape, conv1_pop_best)
+            conv2_pop = gen_population(net.conv2.weight.shape, conv2_pop_best)
 
-            full1_pop = gen_population(net.fc1.weight.shape)
-            full2_pop = gen_population(net.fc2.weight.shape)
-            full3_pop = gen_population(net.fc3.weight.shape)
+            full1_pop = gen_population(net.fc1.weight.shape, full1_pop_best)
+            full2_pop = gen_population(net.fc2.weight.shape, full2_pop_best)
+            full3_pop = gen_population(net.fc3.weight.shape, full3_pop_best)
 
+            running_loss = 0.0
             for i, data in enumerate(trainloader, 0):
                 # get the inputs; data is a list of [inputs, labels]
                 inputs, labels = data
@@ -257,14 +268,34 @@ def run():
                 next_gen = do_crossover(fc3_selected)
                 next_gen = do_mutation(next_gen, best_loss)
                 full3_pop = next_gen
-                """
-                TODO:
-                    - Get accuracy for every generation. Save.
-                    SVM - 92%
-                    SVM - 93.%
-                """
-                print(best_loss)
+
+                conv1_pop_best = conv1_pop[0]
+                conv2_pop_best = conv2_pop[0]
+                full1_pop_best = full1_pop[0]
+                full2_pop_best = full2_pop[0]
+                full3_pop_best = full3_pop[0]
+
+                # print statistics
+                running_loss += loss.item()
+                if i % 10 == 9:    # print every 2000 mini-batches
+                    print('[%d, %5d] loss: %.3f' %
+                          (epoch + 1, i + 1, running_loss / 2000))
+                    running_loss = 0.0
+
     print('Finished Training')
+
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for data in testloader:
+            images, labels = data
+            outputs = net(images)
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+
+    print('Accuracy of the network: %d %%' % (
+        100 * correct / total))
 
 
 if __name__ == '__main__':
