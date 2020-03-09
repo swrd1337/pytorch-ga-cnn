@@ -21,7 +21,7 @@ trainloader = torch.utils.data.DataLoader(
 )
 
 testset = torchvision.datasets.ImageFolder(
-    root="./test", transform=transform
+    root="./data", transform=transform
 )
 
 testloader = torch.utils.data.DataLoader(
@@ -65,10 +65,10 @@ class Net(nn.Module):
 net = Net()
 
 # Initial population size for every epoch
-POP_SIZE = 100
+POP_SIZE = 10
 
 # Always odd value!
-DEFAULT_ELITE_SIZE = 10
+DEFAULT_ELITE_SIZE = 5
 
 # Mutation probabillity
 MP = 0.35
@@ -177,13 +177,15 @@ optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
 
 
 def run():
+    top_off = []
+    
     # Shuffle dataset 100
     conv1_pop_best = None
     conv2_pop_best = None
     full1_pop_best = None
     full2_pop_best = None
     full3_pop_best = None
-    for epoch in range(100):  # loop over the dataset multiple times
+    for epoch in range(1):  # loop over the dataset multiple times
         with torch.no_grad():
             conv1_pop = gen_population(net.conv1.weight.shape, conv1_pop_best)
             conv2_pop = gen_population(net.conv2.weight.shape, conv2_pop_best)
@@ -204,6 +206,7 @@ def run():
                 fc2_fit = []
                 fc3_fit = []
                 # Get fitness for gen
+                top_loss = 0
                 for i in range(POP_SIZE):
                     conv1_pop[i] = conv1_pop[i].view((net.conv1.weight.shape))
                     conv2_pop[i] = conv2_pop[i].view((net.conv2.weight.shape))
@@ -221,6 +224,7 @@ def run():
 
                     outputs = net(inputs)
                     loss = criterion(outputs, labels)
+                    top_loss = loss.item()
                     # print(loss)
                     cv1_fit.append((loss.item(), conv1_pop[i].view(
                         np.prod(net.conv1.weight.shape))))
@@ -275,6 +279,13 @@ def run():
                 full2_pop_best = full2_pop[0]
                 full3_pop_best = full3_pop[0]
 
+                top_off.append((top_loss, [
+                               conv1_pop_best,
+                               conv2_pop_best,
+                               full1_pop_best,
+                               full2_pop_best,
+                               full3_pop_best]))
+
                 # print statistics
                 running_loss += loss.item()
                 if i % 10 == 9:    # print every 2000 mini-batches
@@ -283,6 +294,23 @@ def run():
                     running_loss = 0.0
 
     print('Finished Training')
+
+    top_off = sorted(top_off, key=lambda x: x[0])
+    print(top_off[0])
+    with torch.no_grad():
+        conv1 = top_off[0][1][0].view((net.conv1.weight.shape))
+        conv2 = top_off[0][1][1].view((net.conv2.weight.shape))
+
+        full1 = top_off[0][1][2].view((net.fc1.weight.shape))
+        full2 = top_off[0][1][3].view((net.fc2.weight.shape))
+        full3 = top_off[0][1][4].view((net.fc3.weight.shape))
+
+        net.conv1.weight = torch.nn.Parameter(conv1)
+        net.conv2.weight = torch.nn.Parameter(conv2)
+
+        net.fc1.weight = torch.nn.Parameter(full1)
+        net.fc2.weight = torch.nn.Parameter(full2)
+        net.fc3.weight = torch.nn.Parameter(full3)
 
     correct = 0
     total = 0
