@@ -7,23 +7,27 @@ import torchvision.transforms as transforms
 import numpy as np
 import random
 
-# numpy train test split NFoldCrossValidation
+# Data transfomar and normalizator.
 transform = transforms.Compose(
     [transforms.Resize((30, 30)), transforms.ToTensor()]
 )
 
+# Load train set.
 trainset = torchvision.datasets.ImageFolder(
     root="./data", transform=transform
 )
 
+# Train data loader.
 trainloader = torch.utils.data.DataLoader(
     trainset, batch_size=10, shuffle=True, num_workers=2
 )
 
+# Load test set.
 testset = torchvision.datasets.ImageFolder(
     root="./data", transform=transform
 )
 
+# Tests data loader.
 testloader = torch.utils.data.DataLoader(
     testset, batch_size=10, shuffle=False, num_workers=2
 )
@@ -37,6 +41,7 @@ classes = (
 )
 
 
+# CNN architecture.
 class Net(nn.Module):
     """
     Classic PyTorch CNN model for image classification.
@@ -45,13 +50,16 @@ class Net(nn.Module):
 
     def __init__(self):
         super(Net, self).__init__()
+        # Convolutional layers.
         self.conv1 = nn.Conv2d(3, 6, 5)
         self.pool = nn.MaxPool2d(2, 2)
         self.conv2 = nn.Conv2d(6, 16, 5)
+        # Fully conected layers.
         self.fc1 = nn.Linear(16 * 4 * 4, 120, bias=False)
         self.fc2 = nn.Linear(120, 84, bias=False)
         self.fc3 = nn.Linear(84, 4, bias=False)
 
+    # Pass data within layers.
     def forward(self, x):
         x = self.pool(F.relu(self.conv1(x)))
         x = self.pool(F.relu(self.conv2(x)))
@@ -62,6 +70,7 @@ class Net(nn.Module):
         return x
 
 
+# NN instance.
 net = Net()
 
 # Initial population size for every epoch
@@ -74,6 +83,9 @@ DEFAULT_ELITE_SIZE = 5
 MP = 0.35
 
 
+"""
+Generate random weights for every layer. Save the best one for every epoch.
+"""
 def gen_population(shape, best_one, size=POP_SIZE):
     res = []
 
@@ -146,6 +158,9 @@ def do_crossover(chromozomes):
     return next_gen
 
 
+"""
+Mutation fuction, use the minimus loss as mutation factor.
+"""
 def do_mutation(generations, loss):
     for i in range(0, len(generations)):
         g = random.uniform(0, 1)
@@ -164,29 +179,28 @@ def do_mutation(generations, loss):
     return generations
 
 
+"""
+Used to get loss for every prediction on train process.
+"""
 criterion = nn.CrossEntropyLoss()
-optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
 
 
-# Salvez acuratetea si lossul pe testing dupa ce iau cel rezultat
-# Amestecand datele
-# Probabilitatea de mutatie setata de mine.
-# losst
-# Use normalized loss -1 ---- 1 to mutate random weigth using mutation algo.
-# Cel mai bun cromozom dupa rulare.
-
-
+"""
+Train and GA optimization method.
+"""
 def run():
+	# Save the best chromozome after every epoch.
     top_off = []
     
-    # Shuffle dataset 100
+    # Best weights for every layer. Used in GA optimization.
     conv1_pop_best = None
     conv2_pop_best = None
     full1_pop_best = None
     full2_pop_best = None
     full3_pop_best = None
-    for epoch in range(1):  # loop over the dataset multiple times
+    for epoch in range(100):  # loop over the dataset multiple times
         with torch.no_grad():
+        	# Generate populations per epoch,
             conv1_pop = gen_population(net.conv1.weight.shape, conv1_pop_best)
             conv2_pop = gen_population(net.conv2.weight.shape, conv2_pop_best)
 
@@ -208,6 +222,7 @@ def run():
                 # Get fitness for gen
                 top_loss = 0
                 for i in range(POP_SIZE):
+                	# Reshape chromozomes for CNN model.
                     conv1_pop[i] = conv1_pop[i].view((net.conv1.weight.shape))
                     conv2_pop[i] = conv2_pop[i].view((net.conv2.weight.shape))
 
@@ -215,6 +230,7 @@ def run():
                     full2_pop[i] = full2_pop[i].view((net.fc2.weight.shape))
                     full3_pop[i] = full3_pop[i].view((net.fc3.weight.shape))
 
+                    # Add chromozomes to model.
                     net.conv1.weight = torch.nn.Parameter(conv1_pop[i])
                     net.conv2.weight = torch.nn.Parameter(conv2_pop[i])
 
@@ -222,10 +238,11 @@ def run():
                     net.fc2.weight = torch.nn.Parameter(full2_pop[i])
                     net.fc3.weight = torch.nn.Parameter(full3_pop[i])
 
+                    # Make forward.
                     outputs = net(inputs)
                     loss = criterion(outputs, labels)
                     top_loss = loss.item()
-                    # print(loss)
+                    # Save chromozomes with loss alongside. Using loss as fitness.
                     cv1_fit.append((loss.item(), conv1_pop[i].view(
                         np.prod(net.conv1.weight.shape))))
                     cv2_fit.append((loss.item(), conv2_pop[i].view(
@@ -238,47 +255,48 @@ def run():
                     fc3_fit.append((loss.item(), full3_pop[i].view(
                         np.prod(net.fc3.weight.shape))))
 
+                # GA stepts for layer.
                 cv1_fit = sorted(cv1_fit, key=lambda x: x[0])
                 best_loss = cv1_fit[0][0]
                 cv1_selected = get_fittest(cv1_fit)
                 next_gen = do_crossover(cv1_selected)
                 next_gen = do_mutation(next_gen, best_loss)
                 conv1_pop = next_gen
-
+                # GA stepts for layer.
                 cv2_fit = sorted(cv2_fit, key=lambda x: x[0])
                 best_loss = cv2_fit[0][0]
                 cv2_selected = get_fittest(cv2_fit)
                 next_gen = do_crossover(cv2_selected)
                 next_gen = do_mutation(next_gen, best_loss)
                 conv2_pop = next_gen
-
+                # GA stepts for layer.
                 fc1_fit = sorted(fc1_fit, key=lambda x: x[0])
                 best_loss = fc1_fit[0][0]
                 fc1_selected = get_fittest(fc1_fit)
                 next_gen = do_crossover(fc1_selected)
                 next_gen = do_mutation(next_gen, best_loss)
                 full1_pop = next_gen
-
+                # GA stepts for layer.
                 fc2_fit = sorted(fc2_fit, key=lambda x: x[0])
                 best_loss = fc2_fit[0][0]
                 fc2_selected = get_fittest(fc2_fit)
                 next_gen = do_crossover(fc2_selected)
                 next_gen = do_mutation(next_gen, best_loss)
                 full2_pop = next_gen
-
+                # GA stepts for layer.
                 fc3_fit = sorted(fc3_fit, key=lambda x: x[0])
                 best_loss = fc3_fit[0][0]
                 fc3_selected = get_fittest(fc3_fit)
                 next_gen = do_crossover(fc3_selected)
                 next_gen = do_mutation(next_gen, best_loss)
                 full3_pop = next_gen
-
+                # Save the best one for every layer.
                 conv1_pop_best = conv1_pop[0]
                 conv2_pop_best = conv2_pop[0]
                 full1_pop_best = full1_pop[0]
                 full2_pop_best = full2_pop[0]
                 full3_pop_best = full3_pop[0]
-
+                # Save the best over train.
                 top_off.append((top_loss, [
                                conv1_pop_best,
                                conv2_pop_best,
@@ -288,15 +306,18 @@ def run():
 
                 # print statistics
                 running_loss += loss.item()
-                if i % 10 == 9:    # print every 2000 mini-batches
+                if i % 10 == 9:    # print every 10 mini-batches
                     print('[%d, %5d] loss: %.3f' %
                           (epoch + 1, i + 1, running_loss / 2000))
                     running_loss = 0.0
 
     print('Finished Training')
 
+    # Sort by loss.
     top_off = sorted(top_off, key=lambda x: x[0])
     print(top_off[0])
+
+    # Add best trained chromoz to our CNN model.
     with torch.no_grad():
         conv1 = top_off[0][1][0].view((net.conv1.weight.shape))
         conv2 = top_off[0][1][1].view((net.conv2.weight.shape))
@@ -312,6 +333,7 @@ def run():
         net.fc2.weight = torch.nn.Parameter(full2)
         net.fc3.weight = torch.nn.Parameter(full3)
 
+    # Make test predictions.
     correct = 0
     total = 0
     with torch.no_grad():
@@ -322,6 +344,7 @@ def run():
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
 
+    # Print accuracy
     print('Accuracy of the network: %d %%' % (
         100 * correct / total))
 
